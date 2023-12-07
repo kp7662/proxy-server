@@ -79,7 +79,7 @@ type forwardProxy struct {
 
 func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Println(req.RemoteAddr, "\t\t", req.Method, "\t\t", req.URL, "\t\t Host:", req.Host)
-	log.Println("\t\t\t\t\t", req.Header)
+	log.Println("Initial Headers:", req.Header)
 
 	// Check if the protocol is supported
 	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
@@ -95,6 +95,8 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Append the client's IP to the X-Forwarded-For header
 	clientIP := extractClientIP(req)
 	appendHostToXForwardHeader(req.Header, clientIP)
+
+	log.Println("Modified Headers:", req.Header) // Added for debugging
 
 	// Forward the request based on its method
 	switch req.Method {
