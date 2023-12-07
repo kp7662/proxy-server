@@ -78,11 +78,10 @@ type forwardProxy struct {
 }
 
 func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// The "Host:" header is promoted to Request.Host and is removed from
-	// request.Header by net/http, so we print it out explicitly.
 	log.Println(req.RemoteAddr, "\t\t", req.Method, "\t\t", req.URL, "\t\t Host:", req.Host)
 	log.Println("\t\t\t\t\t", req.Header)
 
+	// Check if the protocol is supported
 	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
 		msg := "unsupported protocol scheme " + req.URL.Scheme
 		http.Error(w, msg, http.StatusBadRequest)
@@ -90,34 +89,71 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	client := &http.Client{}
-	// When a http.Request is sent through an http.Client, RequestURI should not
-	// be set (see documentation of this field).
-	req.RequestURI = ""
+	// Add the X-Forwarded-Proto header
+	req.Header.Set("X-Forwarded-Proto", "http")
 
-	removeHopHeaders(req.Header)
-	removeConnectionHeaders(req.Header)
+	// Append the client's IP to the X-Forwarded-For header
+	clientIP := extractClientIP(req)
+	appendHostToXForwardHeader(req.Header, clientIP)
 
-	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-		appendHostToXForwardHeader(req.Header, clientIP)
+	// Forward the request based on its method
+	switch req.Method {
+	case "GET", "POST", "HEAD":
+		forwardRequest(w, req)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
 
-	resp, err := client.Do(req)
+// --------------------------------------------------------------------
+
+// Helper function
+func modifyRequestURL(req *http.Request) {
+	req.URL.Scheme = ""
+	req.URL.Host = ""
+}
+
+func extractClientIP(req *http.Request) string {
+	ip, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		return req.RemoteAddr // Fallback to using the whole RemoteAddr string
+	}
+	return ip
+}
+
+func forwardRequest(w http.ResponseWriter, req *http.Request) {
+	// Create a new request to avoid modifying the RequestURI field
+	modifiedReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
 	if err != nil {
 		http.Error(w, "Server Error", http.StatusInternalServerError)
-		log.Fatal("ServeHTTP:", err)
+		log.Printf("Error creating request: %v", err)
+		return
+	}
+
+	// Copy headers from the original request
+	copyHeader(modifiedReq.Header, req.Header)
+
+	// Set the host for the new request
+	modifiedReq.Host = req.URL.Host
+
+	client := &http.Client{}
+
+	// Forward the modified request
+	resp, err := client.Do(modifiedReq)
+	if err != nil {
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+		log.Printf("Error forwarding request: %v", err)
+		return
 	}
 	defer resp.Body.Close()
 
-	log.Println(req.RemoteAddr, " ", resp.Status)
-
-	removeHopHeaders(resp.Header)
-	removeConnectionHeaders(resp.Header)
-
+	// Copy headers and body to the response writer
 	copyHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
+
+// --------------------------------------------------------------------
 
 func main() {
 	var addr = flag.String("addr", "127.0.0.1:9999", "proxy address")
