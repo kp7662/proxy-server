@@ -42,7 +42,7 @@ func (p *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Check if the request path matches any of the configured routes
 	for pattern, route := range p.Routes {
 		if strings.HasPrefix(r.URL.Path, pattern) {
-			// Forward the request to the target
+			// Modify the request URL to include only the path
 			modifiedURL := route.Target + r.URL.Path[len(pattern):]
 			log.Printf("Modified Request URL: %s", modifiedURL)
 
@@ -59,9 +59,15 @@ func (p *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				req.Header.Set(key, strings.Join(value, ","))
 			}
 
+			// Remove the protocol and host from the request URL
+			req.URL.Scheme = ""
+			req.URL.Host = ""
+			req.RequestURI = "" // Clear the RequestURI as well to avoid conflicts
+
 			// Forward the request
 			resp, err := client.Do(req)
 			if err != nil {
+				log.Printf("Error forwarding request: %v", err)
 				http.Error(w, "Error forwarding request", http.StatusInternalServerError)
 				return
 			}
@@ -93,6 +99,7 @@ func main() {
 	// Example: proxy.AddProxyRoute("/api", "http://example.com/api")
 	// Add more routes as needed
 	proxy.AddProxyRoute("/api", "http://example.com/api")
+	proxy.AddProxyRoute("/api", "https://en.wikipedia.org/wiki/Cat")
 
 	// Set up an HTTP server and listen on the specified port
 	http.Handle("/", proxy)
