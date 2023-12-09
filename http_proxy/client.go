@@ -13,9 +13,9 @@ import (
 
 func main() {
 	// Proxy URL
-	//Proxy String (proxyStr): This string specifies the URL of your proxy server.
-	//In your case, "http://127.0.0.1:9999" means that the proxy server is running on your local machine
-	//(127.0.0.1 is the loopback IP address, often referred to as "localhost") and listens on port 9999
+	// Proxy String (proxyStr): This string specifies the URL of your proxy server.
+	// In your case, "http://127.0.0.1:9999" means that the proxy server is running on your local machine
+	// (127.0.0.1 is the loopback IP address, often referred to as "localhost") and listens on port 9999
 	proxyStr := "http://127.0.0.1:9999"
 	proxyURL, err := url.Parse(proxyStr)
 	if err != nil {
