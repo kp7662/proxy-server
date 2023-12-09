@@ -16,14 +16,17 @@ func main() {
 	//Proxy String (proxyStr): This string specifies the URL of your proxy server.
 	//In your case, "http://127.0.0.1:9999" means that the proxy server is running on your local machine
 	//(127.0.0.1 is the loopback IP address, often referred to as "localhost") and listens on port 9999
-	proxyStr := "http://127.0.0.1:9999"
+	proxyStr := "http://127.0.0.1:9999" //?????????????????????????????????????
+	// Parse raw url into url struct with fields (e.g. host, fragments, params, etc.)
 	proxyURL, err := url.Parse(proxyStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// HTTP client with proxy
+	// Define client by defining proxy 
 	client := &http.Client{
+		// Transport do a round-trip to route http request to the proxy instead end server 
 		Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
 	}
 
@@ -32,7 +35,7 @@ func main() {
 	targetURLs := flag.Args()
 
 	if len(targetURLs) == 0 {
-		log.Fatal("No URL provided. Usage: go run main.go [http://example.com ...]")
+		log.Fatal("No URL provided.")
 	}
 
 	// Performing GET requests for each provided URL
@@ -61,7 +64,9 @@ func testRequest(client *http.Client, method string, url string, body *bytes.Buf
 		log.Printf("Failed to create request for %s: %v\n", url, err)
 		return
 	}
-
+    /*If no proxy is configured, the client extracts the host from the URL for the TCP connection 
+	and uses the path part in the HTTP request line.If a proxy is configured, the client sends the
+	 full URL to the proxy.*/
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error on %s request to %s: %v\n", method, url, err)

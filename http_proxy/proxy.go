@@ -111,10 +111,6 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // --------------------------------------------------------------------
 
 // Helper function
-func modifyRequestURL(req *http.Request) {
-	req.URL.Scheme = ""
-	req.URL.Host = ""
-}
 
 func extractClientIP(req *http.Request) string {
 	ip, _, err := net.SplitHostPort(req.RemoteAddr)
