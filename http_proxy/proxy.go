@@ -122,27 +122,42 @@ func extractClientIP(req *http.Request) string {
 
 func forwardRequest(w http.ResponseWriter, req *http.Request) {
 	// Create a new request to avoid modifying the RequestURI field
-	modifiedReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
-	if err != nil {
-		http.Error(w, "Server Error", http.StatusInternalServerError)
-		log.Printf("Error creating request: %v", err)
-		return
-	}
+	/*
+		modifiedReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
+		if err != nil {
+			http.Error(w, "Server Error", http.StatusInternalServerError)
+			log.Printf("Error creating request: %v", err)
+			return
+		}
 
-	// Copy headers from the original request
-	copyHeader(modifiedReq.Header, req.Header)
+		// Copy headers from the original request
+		copyHeader(modifiedReq.Header, req.Header)
 
-	// Set the host for the new request
-	modifiedReq.Host = req.URL.Host
+		// Set the host for the new request
+		modifiedReq.Host = req.URL.Host
 
+		client := &http.Client{}
+
+		// Forward the modified request
+		resp, err := client.Do(modifiedReq)
+		if err != nil {
+			http.Error(w, "Server Error", http.StatusInternalServerError)
+			log.Printf("Error forwarding request: %v", err)
+			return
+		}
+		defer resp.Body.Close()*/
 	client := &http.Client{}
+	// When a http.Request is sent through an http.Client, RequestURI should not
+	// be set (see documentation of this field).
+	req.RequestURI = ""
 
-	// Forward the modified request
-	resp, err := client.Do(modifiedReq)
+	removeHopHeaders(req.Header)
+	removeConnectionHeaders(req.Header)
+
+	resp, err := client.Do(req)
 	if err != nil {
 		http.Error(w, "Server Error", http.StatusInternalServerError)
-		log.Printf("Error forwarding request: %v", err)
-		return
+		log.Fatal("ServeHTTP:", err)
 	}
 	defer resp.Body.Close()
 	log.Println(req.RemoteAddr, " ", resp.Status)
@@ -157,7 +172,7 @@ func forwardRequest(w http.ResponseWriter, req *http.Request) {
 // --------------------------------------------------------------------
 
 func main() {
-	var addr = flag.String("addr", "10.9.51.232:9999", "proxy address")
+	var addr = flag.String("addr", "127.0.0.1:9999", "proxy address")
 	flag.Parse()
 
 	proxy := &forwardProxy{}
