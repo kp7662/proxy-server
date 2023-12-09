@@ -100,27 +100,19 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Println("Modified Headers:", req.Header) // Added for debugging
 
 	// Forward the request based on its method
-	switch req.Method {
-	case "GET", "POST":
-		forwardRequest(w, req)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
+	/*switch req.Method {
+		case "GET", "POST":
+			forwardRequest(w, req)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}*/
 
-// --------------------------------------------------------------------
+	// --------------------------------------------------------------------
 
-// Helper function
+	// Helper function
 
-func extractClientIP(req *http.Request) string {
-	ip, _, err := net.SplitHostPort(req.RemoteAddr)
-	if err != nil {
-		return req.RemoteAddr // Fallback to using the whole RemoteAddr string
-	}
-	return ip
-}
-
-func forwardRequest(w http.ResponseWriter, req *http.Request) {
+	//func forwardRequest(w http.ResponseWriter, req *http.Request) {
 	// Create a new request to avoid modifying the RequestURI field
 	/*
 		modifiedReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
@@ -151,8 +143,8 @@ func forwardRequest(w http.ResponseWriter, req *http.Request) {
 	// be set (see documentation of this field).
 	req.RequestURI = ""
 
-	removeHopHeaders(req.Header)
-	removeConnectionHeaders(req.Header)
+	//removeHopHeaders(req.Header)
+	//removeConnectionHeaders(req.Header)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -161,12 +153,20 @@ func forwardRequest(w http.ResponseWriter, req *http.Request) {
 	}
 	defer resp.Body.Close()
 	log.Println(req.RemoteAddr, " ", resp.Status)
-	removeHopHeaders(resp.Header)
-	removeConnectionHeaders(resp.Header)
+	//removeHopHeaders(resp.Header)
+	//removeConnectionHeaders(resp.Header)
 	// Copy headers and body to the response writer
 	copyHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+func extractClientIP(req *http.Request) string {
+	ip, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		return req.RemoteAddr // Fallback to using the whole RemoteAddr string
+	}
+	return ip
 }
 
 // --------------------------------------------------------------------
