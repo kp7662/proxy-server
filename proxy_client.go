@@ -32,6 +32,11 @@ func main() {
 
 	// Test HEAD request
 	testRequest(client, "HEAD", "http://example.com", nil)
+
+	// Test specific cases
+	// Expected Output: GET /research/ HTTP/1.1
+	testRequest(client, "GET", "http://www.cornell.edu/research/ HTTP/1.1", nil)
+
 }
 
 func testRequest(client *http.Client, method string, url string, body *bytes.Buffer) {

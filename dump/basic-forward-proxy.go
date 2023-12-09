@@ -108,8 +108,8 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // --------------------------------------------------------------------
+// Helper functions
 
-// Helper function
 func modifyRequestURL(req *http.Request) {
 	req.URL.Scheme = ""
 	req.URL.Host = ""
@@ -124,23 +124,28 @@ func extractClientIP(req *http.Request) string {
 }
 
 func forwardRequest(w http.ResponseWriter, req *http.Request) {
-	// Create a new request to avoid modifying the RequestURI field
-	modifiedReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
+	// Extracting only the path and query from the request URL
+	newPath := req.URL.Path
+	if req.URL.RawQuery != "" {
+		newPath += "?" + req.URL.RawQuery
+	}
+
+	// Forwarding the request to the destination server
+	// Re-create the request with the new path
+	modifiedReq, err := http.NewRequest(req.Method, newPath, req.Body)
 	if err != nil {
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		log.Printf("Error creating request: %v", err)
 		return
 	}
 
-	// Copy headers from the original request
+	// Copy headers from the original request and modify as needed
 	copyHeader(modifiedReq.Header, req.Header)
+	modifiedReq.Header.Set("Host", req.Host)
+	modifiedReq.Header.Set("X-Forwarded-Proto", "http")
 
-	// Set the host for the new request
-	modifiedReq.Host = req.URL.Host
-
+	// Use http.Client to forward the modified request
 	client := &http.Client{}
-
-	// Forward the modified request
 	resp, err := client.Do(modifiedReq)
 	if err != nil {
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -149,7 +154,7 @@ func forwardRequest(w http.ResponseWriter, req *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Copy headers and body to the response writer
+	// Copy response headers and body back to the original client
 	copyHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
