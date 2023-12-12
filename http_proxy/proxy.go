@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 // Hop-by-hop headers. These are removed when sent to the backend.
@@ -83,8 +85,15 @@ type forwardProxy struct {
 
 // responseWriter is an interface!!!
 func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	startTime := time.Now() // Start time measurement
 	log.Println(req.RemoteAddr, "\t\t", req.Method, "\t\t", req.URL, "\t\t Host:", req.Host)
 	log.Println("Initial Headers:", req.Header)
+
+	if req.Method == "CONNECT" {
+		p.handleTunneling(w, req)
+		return
+	}
+
 	// Check for blocked domain
 	if p.blockedSet.IsBlocked(req.URL.Hostname()) {
 		http.Error(w, "Forbidden Content", http.StatusForbidden)
@@ -101,6 +110,7 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if req.Method == "GET" {
 		if cachedResponse, found := p.cache.Get(req); found {
+			processStartTime := time.Now()
 			// Copy cached response to the response writer
 			removeHopHeaders(cachedResponse.Header)
 			removeConnectionHeaders(cachedResponse.Header)
@@ -114,11 +124,13 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// }
 			// log.Println("cached body", body)
 			io.Copy(w, cachedResponse.Body)
+			processDuration := time.Since(processStartTime)
+			log.Printf("Served from cache in %v\n", processDuration)
 			log.Println("Sent from the cache")
 			return
 		}
 	}
-
+	processStartTime := time.Now()
 	// Add the X-Forwarded-Proto header
 	req.Header.Set("X-Forwarded-Proto", "http")
 
@@ -209,8 +221,85 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		io.Copy(w, resp.Body)
 	}
+	processDuration := time.Since(processStartTime)
+	log.Printf("Served from destination server in %v\n", processDuration)
 	//io.Copy(w, resp.Body)
+	totalDuration := time.Since(startTime)
+	log.Printf("Total request processing time: %v\n", totalDuration)
+}
 
+func (p *forwardProxy) handleTunneling(w http.ResponseWriter, req *http.Request) {
+	log.Printf("Handling CONNECT for %s\n", req.Host)
+
+	// Establish a TCP connection to the requested host
+	log.Println("Attempting to connect to the destination host")
+	destConn, err := net.DialTimeout("tcp", req.Host, 10*time.Second)
+	if err != nil {
+		log.Printf("Error connecting to destination host: %v\n", err)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	defer destConn.Close()
+	log.Println("Connection to destination host established")
+
+	// Send 200 OK to the client
+	log.Println("Sending 200 OK to the client")
+	w.WriteHeader(http.StatusOK)
+
+	// Hijack the connection
+	log.Println("Attempting to hijack the connection")
+	hijacker, ok := w.(http.Hijacker)
+	if !ok {
+		log.Println("Error: Hijacking not supported")
+		http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
+		return
+	}
+
+	clientConn, _, err := hijacker.Hijack()
+	if err != nil {
+		log.Printf("Error hijacking the connection: %v\n", err)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	defer clientConn.Close()
+	log.Println("Connection hijacked successfully")
+
+	// Initialize the WaitGroup and add a count of 2 (for the two goroutines)
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Start the transfer goroutines with the WaitGroup
+	go transfer(destConn, clientConn, &wg)
+	go transfer(clientConn, destConn, &wg)
+
+	// Wait for both transfers to complete before closing the connections
+	wg.Wait()
+}
+
+func transfer(destination io.WriteCloser, source io.ReadCloser, wg *sync.WaitGroup) {
+	defer wg.Done() // Signal completion of this goroutine
+	defer destination.Close()
+	defer source.Close()
+
+	// Log start of data transfer
+	log.Println("Starting data transfer")
+
+	n, err := io.Copy(destination, source)
+	if err != nil {
+		if err == io.EOF {
+			// EOF is expected when the connection is closed normally
+			log.Printf("Data transfer completed with %d bytes transferred\n", n)
+		} else {
+			// Log unexpected errors
+			log.Printf("Error during data transfer: %v\n", err)
+		}
+	} else {
+		// Log successful completion of transfer
+		log.Printf("Data transfer successful with %d bytes transferred\n", n)
+	}
+
+	// Log the closing of connections
+	log.Println("Closing connections")
 }
 
 func extractClientIP(req *http.Request) string {
