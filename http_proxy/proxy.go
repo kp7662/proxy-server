@@ -15,11 +15,13 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -75,18 +77,46 @@ func appendHostToXForwardHeader(header http.Header, host string) {
 }
 
 type forwardProxy struct {
+	blockedSet *BlockedSet
+	cache      *HTTPCache
 }
 
+// responseWriter is an interface!!!
 func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Println(req.RemoteAddr, "\t\t", req.Method, "\t\t", req.URL, "\t\t Host:", req.Host)
 	log.Println("Initial Headers:", req.Header)
-
+	// Check for blocked domain
+	if p.blockedSet.IsBlocked(req.URL.Hostname()) {
+		http.Error(w, "Forbidden Content", http.StatusForbidden)
+		log.Println("Forbidden Content")
+		return
+	}
 	// Check if the protocol is supported
 	if req.URL.Scheme != "http" {
 		msg := "unsupported protocol scheme " + req.URL.Scheme
 		http.Error(w, msg, http.StatusBadRequest)
 		log.Println(msg)
 		return
+	}
+
+	if req.Method == "GET" {
+		if cachedResponse, found := p.cache.Get(req); found {
+			// Copy cached response to the response writer
+			removeHopHeaders(cachedResponse.Header)
+			removeConnectionHeaders(cachedResponse.Header)
+			log.Println("cached header", cachedResponse.Header)
+			copyHeader(w.Header(), cachedResponse.Header)
+			w.WriteHeader(cachedResponse.StatusCode)
+			// body, err := io.ReadAll(cachedResponse.Body)
+			// if err != nil {
+			// 	// handle error
+			// 	return
+			// }
+			// log.Println("cached body", body)
+			io.Copy(w, cachedResponse.Body)
+			log.Println("Sent from the cache")
+			return
+		}
 	}
 
 	// Add the X-Forwarded-Proto header
@@ -98,46 +128,6 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	removeHopHeaders(req.Header)
 	removeConnectionHeaders(req.Header)
 	log.Println("Modified Headers:", req.Header) // Added for debugging
-
-	// Forward the request based on its method
-	/*switch req.Method {
-		case "GET", "POST":
-			forwardRequest(w, req)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}*/
-
-	// --------------------------------------------------------------------
-
-	// Helper function
-
-	//func forwardRequest(w http.ResponseWriter, req *http.Request) {
-	// Create a new request to avoid modifying the RequestURI field
-	/*
-		modifiedReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
-		if err != nil {
-			http.Error(w, "Server Error", http.StatusInternalServerError)
-			log.Printf("Error creating request: %v", err)
-			return
-		}
-
-		// Copy headers from the original request
-		copyHeader(modifiedReq.Header, req.Header)
-
-		// Set the host for the new request
-		modifiedReq.Host = req.URL.Host
-
-		client := &http.Client{}
-
-		// Forward the modified request
-		resp, err := client.Do(modifiedReq)
-		if err != nil {
-			http.Error(w, "Server Error", http.StatusInternalServerError)
-			log.Printf("Error forwarding request: %v", err)
-			return
-		}
-		defer resp.Body.Close()*/
 	client := &http.Client{}
 	// When a http.Request is sent through an http.Client, RequestURI should not
 	// be set (see documentation of this field).
@@ -150,15 +140,77 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		log.Fatal("ServeHTTP:", err)
+		return
 	}
 	defer resp.Body.Close()
-	log.Println(req.RemoteAddr, " ", resp.Status)
+
 	//removeHopHeaders(resp.Header)
 	//removeConnectionHeaders(resp.Header)
 	// Copy headers and body to the response writer
+	var box bytes.Buffer
+	cachable := -1
+	if req.Method == "GET" {
+		cacheControl := resp.Header.Get("Cache-Control")
+		var maxAge int64
+		maxAge = -1
+		// Default value if max-age is not specified
+		lastModified := "na"
+
+		// Check if the response is cacheable
+		if strings.Contains(cacheControl, "public") || strings.Contains(cacheControl, "no-cache") ||
+			strings.Contains(cacheControl, "max-age") {
+			// Parse max-age if present
+			if strings.Contains(cacheControl, "max-age") {
+				maxAgeDirectives := strings.Split(cacheControl, ",")
+				for _, directive := range maxAgeDirectives {
+					if strings.Contains(directive, "max-age") {
+						maxAgeValue := strings.Split(directive, "=")
+						if len(maxAgeValue) == 2 {
+							maxAgeParsed, err := strconv.Atoi(strings.TrimSpace(maxAgeValue[1]))
+							if err == nil {
+								maxAge = int64(maxAgeParsed)
+							}
+							break
+						}
+					}
+				}
+			}
+
+			lastModified = resp.Header.Get("Last-Modified")
+			log.Println("LAST MODIFIED", lastModified)
+			// If we do not know when was the web page last-modified, we take a coservative approach by treating it as a stale page
+			if lastModified == "" {
+				lastModified = "na"
+			}
+
+			// Store in cache based on max-age
+			if maxAge != -1 {
+				box = p.cache.Put(req, resp, maxAge, lastModified)
+				//p.cache.Put(req, resp, maxAge, lastModified)
+				cachable = 0
+
+			} else {
+				box = p.cache.Put(req, resp, -1, lastModified) // Store without max-age
+				//p.cache.Put(req, resp, -1, lastModified) // Store without max-age
+
+				cachable = 0
+			}
+		} else {
+			log.Println("Not cacheable")
+		}
+	}
+	log.Println(req.RemoteAddr, " ", resp.Status)
+	removeHopHeaders(resp.Header)
+	removeConnectionHeaders(resp.Header)
 	copyHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+	if cachable == 0 {
+		io.Copy(w, bytes.NewReader(box.Bytes()))
+	} else {
+		io.Copy(w, resp.Body)
+	}
+	//io.Copy(w, resp.Body)
+
 }
 
 func extractClientIP(req *http.Request) string {
@@ -172,10 +224,20 @@ func extractClientIP(req *http.Request) string {
 // --------------------------------------------------------------------
 
 func main() {
-	var addr = flag.String("addr", "127.0.0.1:9999", "proxy address")
+	var addr = flag.String("addr", "10.8.64.73:9999", "proxy address")
+	//var addr = flag.String("addr", "127.0.0.1:9999", "proxy address")
 	flag.Parse()
 
-	proxy := &forwardProxy{}
+	blockedSet, err := NewBlockedSet("blocked-domains.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	cache := NewHTTPCache()
+
+	proxy := &forwardProxy{
+		blockedSet: blockedSet,
+		cache:      cache,
+	}
 
 	log.Println("Starting proxy server on", *addr)
 	if err := http.ListenAndServe(*addr, proxy); err != nil {

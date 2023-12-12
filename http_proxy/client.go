@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -24,9 +23,9 @@ func main() {
 	}
 
 	// HTTP client with proxy
-	// Define client by defining proxy 
+	// Define client by defining proxy
 	client := &http.Client{
-		// Transport do a round-trip to route http request to the proxy instead end server 
+		// Transport do a round-trip to route http request to the proxy instead end server
 		Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
 	}
 
@@ -47,10 +46,10 @@ func main() {
 	// we must define the body of the request and the content-type of the data.
 	//The body of the request is the data we send. Why not simply put a JSON string?
 	//Why do we use a bytes.Buffer ? That’s because this argument must implement the interface io.Reader !
-	postBody := bytes.NewBuffer([]byte("test data"))
-	testRequest(client, "POST", "http://httpbin.org/post", postBody)
-	myJson := bytes.NewBuffer([]byte(`{"name":"Maximilien"}`))
-	testRequest(client, "POST", "http://httpbin.org/post", myJson)
+	//postBody := bytes.NewBuffer([]byte("test data"))
+	//testRequest(client, "POST", "http://httpbin.org/post", postBody)
+	//myJson := bytes.NewBuffer([]byte(`{"name":"Maximilien"}`))
+	//testRequest(client, "POST", "http://httpbin.org/post", myJson)
 }
 
 func testRequest(client *http.Client, method string, url string, body *bytes.Buffer) {
@@ -64,7 +63,7 @@ func testRequest(client *http.Client, method string, url string, body *bytes.Buf
 		log.Printf("Failed to create request for %s: %v\n", url, err)
 		return
 	}
-    /*If no proxy is configured, the client extracts the host from the URL for the TCP connection 
+	/*If no proxy is configured, the client extracts the host from the URL for the TCP connection
 	and uses the path part in the HTTP request line.If a proxy is configured, the client sends the
 	 full URL to the proxy.*/
 	resp, err := client.Do(req)
@@ -75,7 +74,7 @@ func testRequest(client *http.Client, method string, url string, body *bytes.Buf
 	defer resp.Body.Close()
 
 	fmt.Printf("Response for %s request to %s: %s\n", method, url, resp.Status)
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Failed to read response body for %s: %v\n", url, err)
 		return
