@@ -313,7 +313,7 @@ func extractClientIP(req *http.Request) string {
 // --------------------------------------------------------------------
 
 func main() {
-	var addr = flag.String("addr", "10.8.64.73:9999", "proxy address")
+	var addr = flag.String("addr", " 10.8.75.17:9999", "proxy address")
 	//var addr = flag.String("addr", "127.0.0.1:9999", "proxy address")
 	flag.Parse()
 

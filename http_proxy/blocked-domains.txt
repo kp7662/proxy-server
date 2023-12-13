@@ -1,0 +1,10 @@
+malaysia.gov.my 
+(.*)\.malaysia.gov.my
+gov.bg
+(.*)\.gov.bg
+openai.com
+(.*)\.openai.com
+twitter.com
+(.*)\.twitter.com
+harvard.edu
+(.*)\.harvard.edu
