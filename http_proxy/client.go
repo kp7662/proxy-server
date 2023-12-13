@@ -11,21 +11,19 @@ import (
 )
 
 func main() {
-	// Proxy URL
-	//Proxy String (proxyStr): This string specifies the URL of your proxy server.
-	//In your case, "http://127.0.0.1:9999" means that the proxy server is running on your local machine
-	//(127.0.0.1 is the loopback IP address, often referred to as "localhost") and listens on port 9999
-	proxyStr := "http://127.0.0.1:9999" //?????????????????????????????????????
-	// Parse raw url into url struct with fields (e.g. host, fragments, params, etc.)
+	// Define the proxy server URL
+	// This is a local proxy server running on the machine at localhost (127.0.0.1) on port 9999
+	proxyStr := "http://127.0.0.1:9999"
+
+	// Parse raw proxy URL string into a url.URL struct with fields (e.g. host, fragments, params, etc.)
 	proxyURL, err := url.Parse(proxyStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// HTTP client with proxy
-	// Define client by defining proxy
+	// Set up an HTTP client that uses proxy
 	client := &http.Client{
-		// Transport do a round-trip to route http request to the proxy instead end server
+		// Transport routes HTTP requests through the specified proxy server instead of the end server
 		Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
 	}
 
@@ -41,15 +39,7 @@ func main() {
 	for _, target := range targetURLs {
 		testRequest(client, "GET", target, nil)
 	}
-	//test POST
-	//Note that in the case of the POST method, in addition to the URL,
-	// we must define the body of the request and the content-type of the data.
-	//The body of the request is the data we send. Why not simply put a JSON string?
-	//Why do we use a bytes.Buffer ? That’s because this argument must implement the interface io.Reader !
-	//postBody := bytes.NewBuffer([]byte("test data"))
-	//testRequest(client, "POST", "http://httpbin.org/post", postBody)
-	//myJson := bytes.NewBuffer([]byte(`{"name":"Maximilien"}`))
-	//testRequest(client, "POST", "http://httpbin.org/post", myJson)
+
 }
 
 func testRequest(client *http.Client, method string, url string, body *bytes.Buffer) {

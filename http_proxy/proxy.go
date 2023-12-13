@@ -27,6 +27,9 @@ import (
 	"time"
 )
 
+// --------------------------------------------------------------------
+// Headers-related helper functions
+
 // Hop-by-hop headers. These are removed when sent to the backend.
 // http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
 // Note: this may be out of date, see RFC 7230 Section 6.1
@@ -42,6 +45,7 @@ var hopHeaders = []string{
 	"Upgrade",
 }
 
+// copyHeader copies all header values from the 'src' http.Header to the 'dst' http.Header
 func copyHeader(dst, src http.Header) {
 	for k, vv := range src {
 		for _, v := range vv {
@@ -50,14 +54,15 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
+// removeHopHeaders removes hop-by-hop headers from an http.Header
 func removeHopHeaders(header http.Header) {
 	for _, h := range hopHeaders {
 		header.Del(h)
 	}
 }
 
-// removeConnectionHeaders removes hop-by-hop headers listed in the "Connection"
-// header of h. See RFC 7230, section 6.1
+// removeConnectionHeaders removes headers listed in the 'Connection' header from the http.Header map
+// See RFC 7230, section 6.1
 func removeConnectionHeaders(h http.Header) {
 	for _, f := range h["Connection"] {
 		for _, sf := range strings.Split(f, ",") {
@@ -68,16 +73,24 @@ func removeConnectionHeaders(h http.Header) {
 	}
 }
 
+// appendHostToXForwardHeader updates the 'X-Forwarded-For' header in the http.Header map
+// It appends the given 'host' (representing the client IP address) to the 'X-Forwarded-For' header
+// This header is used to identify the originating IP addresses of a client connecting to a web server
+// through an HTTP proxy or load balancer
 func appendHostToXForwardHeader(header http.Header, host string) {
-	// If we aren't the first proxy retain prior
-	// X-Forwarded-For information as a comma+space
-	// separated list and fold multiple headers into one.
+	// Check if the 'X-Forwarded-For' header already exists
+	// If the header exists, append the new 'host' to the existing header values
+
 	if prior, ok := header["X-Forwarded-For"]; ok {
 		host = strings.Join(prior, ", ") + ", " + host
 	}
 	header.Set("X-Forwarded-For", host)
 }
 
+// --------------------------------------------------------------------
+
+// forwardProxy defines the structure of a forward proxy server, which includes
+// functionality for blocking certain domains and caching HTTP responses
 type forwardProxy struct {
 	blockedSet *BlockedSet
 	cache      *HTTPCache
@@ -88,11 +101,6 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	startTime := time.Now() // Start time measurement
 	log.Println(req.RemoteAddr, "\t\t", req.Method, "\t\t", req.URL, "\t\t Host:", req.Host)
 	log.Println("Initial Headers:", req.Header)
-
-	if req.Method == "CONNECT" {
-		p.handleTunneling(w, req)
-		return
-	}
 
 	// Check for blocked domain
 	if p.blockedSet.IsBlocked(req.URL.Hostname()) {
@@ -105,6 +113,11 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		msg := "unsupported protocol scheme " + req.URL.Scheme
 		http.Error(w, msg, http.StatusBadRequest)
 		log.Println(msg)
+		return
+	}
+
+	if req.Method == "CONNECT" {
+		p.handleTunneling(w, req)
 		return
 	}
 
@@ -228,6 +241,11 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Printf("Total request processing time: %v\n", totalDuration)
 }
 
+// --------------------------------------------------------------------
+// Helper functions
+
+// handleTunneling handles the CONNECT method for a forward proxy
+// by establishing a secure tunnel for HTTPS connections
 func (p *forwardProxy) handleTunneling(w http.ResponseWriter, req *http.Request) {
 	log.Printf("Handling CONNECT for %s\n", req.Host)
 
@@ -276,6 +294,8 @@ func (p *forwardProxy) handleTunneling(w http.ResponseWriter, req *http.Request)
 	wg.Wait()
 }
 
+// transfer handles the transfer of data from the source to the destination
+// to relay data between a client and a server
 func transfer(destination io.WriteCloser, source io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done() // Signal completion of this goroutine
 	defer destination.Close()
@@ -290,18 +310,16 @@ func transfer(destination io.WriteCloser, source io.ReadCloser, wg *sync.WaitGro
 			// EOF is expected when the connection is closed normally
 			log.Printf("Data transfer completed with %d bytes transferred\n", n)
 		} else {
-			// Log unexpected errors
 			log.Printf("Error during data transfer: %v\n", err)
 		}
 	} else {
-		// Log successful completion of transfer
 		log.Printf("Data transfer successful with %d bytes transferred\n", n)
 	}
 
-	// Log the closing of connections
 	log.Println("Closing connections")
 }
 
+// extractClientIP extracts the IP address from an HTTP request
 func extractClientIP(req *http.Request) string {
 	ip, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
