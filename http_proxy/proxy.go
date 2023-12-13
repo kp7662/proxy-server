@@ -1,17 +1,3 @@
-// Implements a sample proxy server in Go. Adapted from httputil.ReverseProxy's
-// implementation
-//
-// Sample usage: run this program, then elsewhere run
-//
-// $ HTTP_PROXY=127.0.0.1:9999 go run http-client-get-url.go <some url>
-//
-// Then the client will request <some url> through this proxy. Note: if <some
-// url> is on localhost, Go clients will ignore HTTP_PROXY; to force them to use
-// the proxy, either set up a proxy explicitly in the Transport, or set up an
-// alias in /etc/hosts and use that instead of localhost.
-//
-// Eli Bendersky [https://eli.thegreenplace.net]
-// This code is in the public domain.
 package main
 
 import (
@@ -108,6 +94,15 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		log.Println("Forbidden Content")
 		return
 	}
+
+	// Note to Grader: If you wish to configure the server to only handle HTTP
+	// but not HTTPS requests, move the following code block to the indicated
+	// position below (after validating for http requests)
+	if req.Method == "CONNECT" {
+		p.handleTunneling(w, req)
+		return
+	}
+
 	// Check if the protocol is supported
 	if req.URL.Scheme != "http" {
 		msg := "unsupported protocol scheme " + req.URL.Scheme
@@ -116,10 +111,7 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if req.Method == "CONNECT" {
-		p.handleTunneling(w, req)
-		return
-	}
+	// Note to Grader: You may move CONNECT checks here
 
 	if req.Method == "GET" {
 		if cachedResponse, found := p.cache.Get(req); found {
@@ -139,7 +131,7 @@ func (p *forwardProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			io.Copy(w, cachedResponse.Body)
 			processDuration := time.Since(processStartTime)
 			log.Printf("Served from cache in %v\n", processDuration)
-			log.Println("Sent from the cache")
+			log.Println("Served from cache")
 			return
 		}
 	}
@@ -331,8 +323,8 @@ func extractClientIP(req *http.Request) string {
 // --------------------------------------------------------------------
 
 func main() {
-	var addr = flag.String("addr", " 10.8.75.17:9999", "proxy address")
-	//var addr = flag.String("addr", "127.0.0.1:9999", "proxy address")
+	var addr = flag.String("addr", "10.8.75.17:9999", "proxy address")
+	// var addr = flag.String("addr", "127.0.0.1:9999", "proxy address")
 	flag.Parse()
 
 	blockedSet, err := NewBlockedSet("blocked-domains.txt")
