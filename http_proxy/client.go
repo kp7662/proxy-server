@@ -1,6 +1,6 @@
-/// To start the client application, run "go run client.go URL" 
+/// To start the client application, run "go run client.go URL"
 // while the server is running too on a separate terminal
-// Ex. go run client.go http://go.com 
+// Ex. go run client.go http://go.com
 
 package main
 
@@ -48,14 +48,14 @@ func main() {
 	// Note that in the case of the POST method, in addition to the URL,
 	// a body of the request and the content-type of the data must be defined
 	// We use bytes.Buffer because this argument must implement the interface io.Reader
-	
-	// TEST 1 
-    // postBody := bytes.NewBuffer([]byte("test data"))
-    // testRequest(client, "POST", "http://httpbin.org/post", postBody)
 
-	// TEST 2 
-    // myJson := bytes.NewBuffer([]byte(`{"name":"Maximilien"}`))
-    // testRequest(client, "POST", "http://httpbin.org/post", myJson)
+	// TEST 1
+	// postBody := bytes.NewBuffer([]byte("test data"))
+	// testRequest(client, "POST", "http://httpbin.org/post", postBody)
+
+	// TEST 2
+	// myJson := bytes.NewBuffer([]byte(`{"name":"Maximilien"}`))
+	// testRequest(client, "POST", "http://httpbin.org/post", myJson)
 }
 
 func testRequest(client *http.Client, method string, url string, body *bytes.Buffer) {
