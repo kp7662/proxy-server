@@ -3,6 +3,8 @@ The goal of this project is to create a HTTP/HTTPS web proxy and cache in GoLang
 
 **Video Presentation Link: https://www.loom.com/share/63228bfd7d094922b0799141aaa919dd?sid=52cab0ee-e438-4fad-a9e1-fe6cd3519498**
 
+**Presentation Slides: https://docs.google.com/presentation/d/125VBGi76qscjadcWo17pv-hT7BH_TuAsI6PYEJPR1sM/edit#slide=id.p**
+
 **INSTRUCTIONS**
 
 1 Clone the project repository on Github to your local computer.
