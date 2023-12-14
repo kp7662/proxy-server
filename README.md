@@ -21,7 +21,10 @@ The goal of this project is to create a HTTP web proxy and cache in GoLang. The 
 - Look for the “inet” line; the number next to it is your computer’s IP address.
 
 3.2. Then, you need to configure the network settings in Mozilla Firefox. Go to Settings → Network Settings → Under “Configure Proxy Access to the Internet”, select “Manual proxy configuration”, use the IP address of the local machine that the proxy server will be running on as the “HTTP Proxy” box and ‘9999” as the port number. You may also check the box for “Also use this proxy for HTTPS.” It should look like this:
+
+
 <img width="267" alt="Screenshot 2023-12-14 171116" src="https://github.com/kp7662/proxy-server/assets/124271891/291fc470-8f5b-4468-ba5f-3b5264dcdd10">
+
 
 3.3. Once you’re done with the set-up, navigate to the main() function in proxy.go and update the IP address to be the one that the proxy server will be running on. Then, run the following command: go run proxy.go cache_without_lru.go blockedset.go.
 
