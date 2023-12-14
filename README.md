@@ -25,6 +25,7 @@ The goal of this project is to create a HTTP web proxy and cache in GoLang. The 
 
 <img width="267" alt="Screenshot 2023-12-14 171116" src="https://github.com/kp7662/proxy-server/assets/124271891/291fc470-8f5b-4468-ba5f-3b5264dcdd10">
 
+
 3.3. Once you’re done with the set-up, navigate to the main() function in proxy.go and update the IP address to be the one that the proxy server will be running on. Then, run the following command: go run proxy.go cache_without_lru.go blockedset.go.
 
 3.4. Launch Mozilla Firefox on a different computer, check the network setting is configured to route HTTP requests to the proxy server by following the steps in 3.2. Now, you may visit any HTTP sites on the browser and observe the visual layout of the HTTP sites. The HTTP sites routed through the proxy server should look the same as the ones without a proxy server. This [website](https://www.androidauthority.com/sites-still-on-http-889265/) has a compiled list of HTTP sites that you may try to access with our proxy server.
