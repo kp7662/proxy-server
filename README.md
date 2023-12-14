@@ -1,5 +1,7 @@
 # proxy-server
-The goal of this project is to create a HTTP web proxy and cache in GoLang. The proxy will act as an intermediary for HTTP requests, controlling the flow and content of data between clients and servers. The project involves concepts of networking concepts, multithreading, and caching mechanisms.
+The goal of this project is to create a HTTP web proxy and cache in GoLang. The proxy will act as an intermediary for HTTP requests, controlling the flow and content of data between clients and servers. The project involves concepts of networking concepts, blocking, and caching mechanisms.
+
+**Video Presentation Link: https://www.loom.com/share/63228bfd7d094922b0799141aaa919dd?sid=52cab0ee-e438-4fad-a9e1-fe6cd3519498**
 
 **INSTRUCTIONS**
 
