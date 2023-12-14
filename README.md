@@ -25,7 +25,7 @@ The goal of this project is to create a HTTP web proxy and cache in GoLang. The 
 
 3.3. Once you’re done with the set-up, navigate to the main() function in proxy.go and update the IP address to be the one that the proxy server will be running on. Then, run the following command: go run proxy.go cache_without_lru.go blockedset.go.
 
-3.4. Launch Mozilla Firefox on a different computer, check the network setting is configured to route HTTP requests to the proxy server by following the steps in 3.2. Now, you may visit any HTTP sites on the browser and observe the visual layout of the HTTP sites. The HTTP sites routed through the proxy server should look the same as the ones without a proxy server. This [website] (https://www.androidauthority.com/sites-still-on-http-889265/) has a compiled list of HTTP sites that you may try to access with our proxy server.
+3.4. Launch Mozilla Firefox on a different computer, check the network setting is configured to route HTTP requests to the proxy server by following the steps in 3.2. Now, you may visit any HTTP sites on the browser and observe the visual layout of the HTTP sites. The HTTP sites routed through the proxy server should look the same as the ones without a proxy server. This [website](https://www.androidauthority.com/sites-still-on-http-889265/) has a compiled list of HTTP sites that you may try to access with our proxy server.
 
 3.5. To inspect the network traffic, you may click “Inspect” and inspect each request entry manually and the headers as well. 
 
@@ -33,7 +33,7 @@ The goal of this project is to create a HTTP web proxy and cache in GoLang. The 
 
 4 **Running Cache with LRU**: If you want to test cachelru.go, you can switch it with cache_without_lru.go. Also, for cachelru.go if you restart the proxy, you should delete the cached folder as well, the reason is explained in the write-up
    
-5 **Accessing Blocked Sites**: You may try to access blocked websites specified in the blocked-domains.txt. The correct output should show “forbidden content.” Test this feature with this blocked HTTP site with our proxy server like: [gov.bg] (https://gov.bg/), or choose others that match the ones specified in blocked-domains.txt 
+5 **Accessing Blocked Sites**: You may try to access blocked websites specified in the blocked-domains.txt. The correct output should show “forbidden content.” Test this feature with this blocked HTTP site with our proxy server like: [gov.bg](https://gov.bg/), or choose others that match the ones specified in blocked-domains.txt 
 
 If you run into any problems, please email Kok Wei Pua (kp7662@princeton.edu) or Aylin Hadzhieva (ah4068@princeton.edu) to explain the situations, and we will help you troubleshoot the errors.
 
