@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"container/list"
 	"crypto/sha1"
 	"encoding/gob"
 	"encoding/hex"
@@ -30,11 +29,7 @@ type CacheEntry struct {
 // The key is the hash value of the URL string,
 // and the value is a slice of bytes representing the cached response body
 type HTTPCache struct {
-	cacheDir    string
-	lruQueue    *list.List
-	currentSize int
-	maxCap      int
-	cacheData   map[string]*list.Element
+	cacheDir string
 }
 
 // Creates a HTTPCache object
@@ -44,23 +39,8 @@ func NewHTTPCache() *HTTPCache {
 	os.MkdirAll(cacheDir, os.ModePerm)
 	// Return a pointer to the new HTTPCache
 	return &HTTPCache{
-		cacheDir:    cacheDir,
-		lruQueue:    list.New(),
-		currentSize: 0,
-		maxCap:      200,
-		cacheData:   make(map[string](*list.Element)),
+		cacheDir: cacheDir,
 	}
-}
-
-// MaxStorage returns the maximum number of bytes this LRU can store
-func (c *HTTPCache) MaxStorage() int {
-	return c.maxCap
-
-}
-
-// RemainingStorage returns the number of unused bytes available in this LRU
-func (c *HTTPCache) RemainingStorage() int {
-	return (c.maxCap - c.currentSize)
 }
 
 // CacheKey generates a unique hashed key for caching an HTTP request
@@ -108,18 +88,6 @@ func CacheEntryFromBytes(data []byte) *CacheEntry {
 // along with maxAge and lastModified values, and saves the response data to a cache file
 // The response body is also returned as a bytes.Buffer so it can be sent to the client
 func (c *HTTPCache) Put(req *http.Request, resp *http.Response, maxAge int64, lastModified string) (bod bytes.Buffer) {
-	c.currentSize = c.currentSize + 1
-	log.Println("Current size after putting one", c.currentSize)
-	change := 0
-	// Evict items if adding the new pair would exceed the limit
-	for (c.currentSize - change) > c.maxCap {
-		oldestElement := c.lruQueue.Back() // Get the least recently used key
-		stringkey := oldestElement.Value.(string)
-		change = change + 1
-		log.Println("MaxCap Reached...removing")
-		c.RemoveCache(stringkey)
-
-	}
 	key := c.CacheKey(req)
 	filePath := filepath.Join(c.cacheDir, key)
 	var bodyBuffer bytes.Buffer
@@ -149,10 +117,7 @@ func (c *HTTPCache) Put(req *http.Request, resp *http.Response, maxAge int64, la
 	if err != nil {
 		log.Printf("Error writing cache file: %v", err)
 	}
-	//c.currentSize = m - change
-	// Update the order of elements in lruQueue by adding the key to the back
-	c.cacheData[key] = c.lruQueue.PushFront(key)
-	log.Println("Current size after removing if needed", c.currentSize)
+
 	return returnedbody
 }
 
@@ -161,7 +126,6 @@ func (c *HTTPCache) Put(req *http.Request, resp *http.Response, maxAge int64, la
 // whether the cache hit was successful
 func (c *HTTPCache) Get(req *http.Request) (*http.Response, bool) {
 	key := c.CacheKey(req)
-
 	filePath := filepath.Join(c.cacheDir, key)
 
 	// Attempt to read the cached data from the file system
@@ -181,7 +145,7 @@ func (c *HTTPCache) Get(req *http.Request) (*http.Response, bool) {
 
 	// Check if the cache entry is stale. If it is, remove it and return no response
 	if (entry).isStale() {
-		log.Printf("Cache entry for key: %s is stale.", key)
+		log.Printf("Cache entry for key: %s is stale.")
 		c.RemoveCache(key)
 		return nil, false
 	}
@@ -191,7 +155,6 @@ func (c *HTTPCache) Get(req *http.Request) (*http.Response, bool) {
 		Body:       io.NopCloser(bytes.NewBuffer(entry.Body)),
 		Header:     entry.Header,
 	}
-	c.lruQueue.MoveToFront(c.cacheData[key])
 
 	return response, true
 }
@@ -209,9 +172,7 @@ func init() {
 func (c *HTTPCache) RemoveCache(key string) {
 	filePath := filepath.Join(c.cacheDir, key)
 	// log.Printf("Removing filePath (%s) from Cache...\n", filePath)
-	c.lruQueue.Remove(c.cacheData[key])
-	delete(c.cacheData, key)
-	c.currentSize = c.currentSize - 1
+
 	// Attempt to remove the cache file from the file system
 	err := os.Remove(filePath)
 	if err != nil {
