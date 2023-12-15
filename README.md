@@ -20,7 +20,7 @@ The goal of this project is to create a HTTP/HTTPS web proxy and cache in GoLang
 - Look for the “IPv4 Address” or “IPv6 Address” under the network connection you are using. This is your computer’s IP address. 
 
 ### For Mac:
-- In the Terminal window, type “ifconfig” and press Enter.
+- In the Terminal window, type “ipconfig” and press Enter.
 - Locate the section that corresponds to your active network connection (usually labeled “en0” or “en1”).
 - Look for the “inet” line; the number next to it is your computer’s IP address.
 
